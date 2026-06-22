@@ -208,7 +208,7 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
                 title: const Text("Phát bài hát", style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  player.playSong(song);
+                  player.playSong(song, queue: player.playlist.where((s) => player.isSongLiked(s)).toList());
                 },
               ),
               ListTile(
@@ -398,9 +398,9 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
                                       } else {
                                         if (player.isShuffled) {
                                           final randomSongs = List<Song>.from(likedSongs)..shuffle();
-                                          player.playSong(randomSongs.first);
+                                          player.playSong(randomSongs.first, queue: randomSongs);
                                         } else {
-                                          player.playSong(likedSongs.first);
+                                          player.playSong(likedSongs.first, queue: likedSongs);
                                         }
                                       }
                                     }
@@ -465,7 +465,7 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
                               final isPlaying = player.isPlaying && player.currentSong.title == song.title;
 
                               return InkWell(
-                                onTap: () => player.playSong(song),
+                                onTap: () => player.playSong(song, queue: player.playlist.where((s) => player.isSongLiked(s)).toList()),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                                   child: Row(

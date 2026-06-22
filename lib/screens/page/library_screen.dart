@@ -1170,7 +1170,7 @@ class PlaylistDetailPage extends StatelessWidget {
                       backgroundColor: const Color(0xFF1ED760),
                       mini: false,
                       onPressed: () {
-                        player.playSong(songsToShow.first);
+                        player.playSong(songsToShow.first, queue: songsToShow);
                       },
                       child: const Icon(Icons.play_arrow, color: Colors.black, size: 28),
                     ),
@@ -1217,7 +1217,7 @@ class PlaylistDetailPage extends StatelessWidget {
                               style: const TextStyle(color: Colors.white60, fontSize: 13),
                             ),
                             onTap: () {
-                              player.playSong(song);
+                              player.playSong(song, queue: songsToShow);
                             },
                           );
                         },

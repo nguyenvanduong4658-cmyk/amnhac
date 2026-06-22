@@ -177,7 +177,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                 title: const Text("Phát bài hát", style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  player.playSong(song);
+                  player.playSong(song, queue: player.getPlaylistSongs(_currentPlaylistName));
                 },
               ),
               ListTile(
@@ -424,16 +424,23 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                       CircleAvatar(
                                         radius: 12,
                                         backgroundColor: const Color(0xFFE84E36),
-                                        child: Text(
-                                          player.userName.isNotEmpty
-                                              ? player.userName[0].toUpperCase()
-                                              : 'D',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
+                                        backgroundImage: (player.userImagePath != null && player.userImagePath != 'null')
+                                            ? (player.userImagePath!.startsWith('http')
+                                                ? NetworkImage(player.userImagePath!)
+                                                : FileImage(File(player.userImagePath!)) as ImageProvider)
+                                            : null,
+                                        child: (player.userImagePath == null || player.userImagePath == 'null')
+                                            ? Text(
+                                                player.userName.isNotEmpty
+                                                    ? player.userName[0].toUpperCase()
+                                                    : 'D',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 10,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              )
+                                            : null,
                                       ),
                                       const SizedBox(width: 8),
                                       Text(
@@ -567,9 +574,9 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                                       } else {
                                         if (player.isShuffled) {
                                           final randomSongs = List<Song>.from(playlistSongs)..shuffle();
-                                          player.playSong(randomSongs.first);
+                                          player.playSong(randomSongs.first, queue: randomSongs);
                                         } else {
-                                          player.playSong(playlistSongs.first);
+                                          player.playSong(playlistSongs.first, queue: playlistSongs);
                                         }
                                       }
                                     }
@@ -721,7 +728,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
                               final isPlaying = player.isPlaying && player.currentSong.title == song.title;
 
                               return InkWell(
-                                onTap: () => player.playSong(song),
+                                onTap: () => player.playSong(song, queue: player.getPlaylistSongs(_currentPlaylistName)),
                                 child: Padding(
                                   padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
                                   child: Row(
@@ -1089,7 +1096,7 @@ class _PlaylistDetailScreenState extends State<PlaylistDetailScreen> {
         },
       ),
       onTap: () {
-        player.playSong(song);
+        player.playSong(song, queue: player.getPlaylistSongs(_currentPlaylistName));
       },
     );
   }

@@ -333,7 +333,12 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                 title: const Text("Phát bài hát", style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(ctx);
-                  player.playSong(song);
+                  player.playSong(song, queue: player.playlist.where((s) {
+                    final nameLower = widget.artistName.toLowerCase();
+                    return s.artist.toLowerCase().contains(nameLower) ||
+                        s.subtitle.toLowerCase().contains(nameLower) ||
+                        s.title.toLowerCase().contains(nameLower);
+                  }).toList());
                 },
               ),
               ListTile(
@@ -674,9 +679,9 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                                     } else {
                                       if (player.isShuffled) {
                                         final randomSongs = List<Song>.from(artistSongs)..shuffle();
-                                        player.playSong(randomSongs.first);
+                                        player.playSong(randomSongs.first, queue: randomSongs);
                                       } else {
-                                        player.playSong(artistSongs.first);
+                                        player.playSong(artistSongs.first, queue: artistSongs);
                                       }
                                     }
                                   }
@@ -766,7 +771,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
 
                           return InkWell(
                             onTap: () {
-                              player.playSong(song);
+                              player.playSong(song, queue: artistSongs);
                             },
                             child: Padding(
                               padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 10.0),

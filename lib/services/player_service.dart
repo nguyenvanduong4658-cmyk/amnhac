@@ -543,6 +543,10 @@ class PlayerService extends ChangeNotifier {
   bool _isShuffled = false;
   bool _isRepeating = false;
 
+  // Playback queue: when set, next/previous only cycle within this list
+  List<Song> _queue = [];
+  int _queueIndex = 0;
+
   // Profile data
   String _userName = "Văn Dương";
   String _userEmail = "admin@gmail.com";
@@ -563,7 +567,12 @@ class PlayerService extends ChangeNotifier {
   final List<Artist> _followedArtists = []; // Dynamic followed artists list
 
   // Getters
-  Song get currentSong => playlist[_currentIndex];
+  Song get currentSong {
+    if (_queue.isNotEmpty && _queueIndex >= 0 && _queueIndex < _queue.length) {
+      return _queue[_queueIndex];
+    }
+    return playlist[_currentIndex];
+  }
   bool get isPlaying => _isPlaying;
   Duration get currentPosition => _currentPosition;
   Duration get totalDuration => _totalDuration;
@@ -1718,41 +1727,109 @@ class PlayerService extends ChangeNotifier {
     }
   }
 
+  /// Set a playback queue so next/previous cycle within this list only.
+  void setQueue(List<Song> songs, {int startIndex = 0}) {
+    _queue = List<Song>.from(songs);
+    _queueIndex = startIndex.clamp(0, _queue.length - 1);
+    // Also sync global index for compatibility
+    final globalIdx = playlist.indexOf(_queue[_queueIndex]);
+    if (globalIdx != -1) _currentIndex = globalIdx;
+  }
+
+  /// Clear the playback queue, reverting to global playlist navigation.
+  void clearQueue() {
+    _queue = [];
+    _queueIndex = 0;
+  }
+
   void next() {
-    if (_isShuffled && playlist.length > 1) {
-      final random = Random();
-      int nextIndex = _currentIndex;
-      while (nextIndex == _currentIndex) {
-        nextIndex = random.nextInt(playlist.length);
+    if (_queue.isNotEmpty) {
+      // Navigate within the queue
+      if (_isShuffled && _queue.length > 1) {
+        final random = Random();
+        int nextIdx = _queueIndex;
+        while (nextIdx == _queueIndex) {
+          nextIdx = random.nextInt(_queue.length);
+        }
+        _queueIndex = nextIdx;
+      } else {
+        _queueIndex = (_queueIndex + 1) % _queue.length;
       }
-      _currentIndex = nextIndex;
+      // Sync global index
+      final globalIdx = playlist.indexOf(_queue[_queueIndex]);
+      if (globalIdx != -1) _currentIndex = globalIdx;
+      _currentPosition = Duration.zero;
+      addRecentlyPlayedSong(_queue[_queueIndex]);
+      _safePlay(_queue[_queueIndex].audioUrl);
     } else {
-      _currentIndex = (_currentIndex + 1) % playlist.length;
+      // Fallback: global playlist navigation
+      if (_isShuffled && playlist.length > 1) {
+        final random = Random();
+        int nextIndex = _currentIndex;
+        while (nextIndex == _currentIndex) {
+          nextIndex = random.nextInt(playlist.length);
+        }
+        _currentIndex = nextIndex;
+      } else {
+        _currentIndex = (_currentIndex + 1) % playlist.length;
+      }
+      _currentPosition = Duration.zero;
+      addRecentlyPlayedSong(playlist[_currentIndex]);
+      _safePlay(playlist[_currentIndex].audioUrl);
     }
-    _currentPosition = Duration.zero;
-    addRecentlyPlayedSong(playlist[_currentIndex]);
-    _safePlay(playlist[_currentIndex].audioUrl);
     notifyListeners();
   }
 
   void previous() {
-    if (_isShuffled && playlist.length > 1) {
-      final random = Random();
-      int prevIndex = _currentIndex;
-      while (prevIndex == _currentIndex) {
-        prevIndex = random.nextInt(playlist.length);
+    if (_queue.isNotEmpty) {
+      if (_isShuffled && _queue.length > 1) {
+        final random = Random();
+        int prevIdx = _queueIndex;
+        while (prevIdx == _queueIndex) {
+          prevIdx = random.nextInt(_queue.length);
+        }
+        _queueIndex = prevIdx;
+      } else {
+        _queueIndex = (_queueIndex - 1 + _queue.length) % _queue.length;
       }
-      _currentIndex = prevIndex;
+      final globalIdx = playlist.indexOf(_queue[_queueIndex]);
+      if (globalIdx != -1) _currentIndex = globalIdx;
+      _currentPosition = Duration.zero;
+      addRecentlyPlayedSong(_queue[_queueIndex]);
+      _safePlay(_queue[_queueIndex].audioUrl);
     } else {
-      _currentIndex = (_currentIndex - 1 + playlist.length) % playlist.length;
+      if (_isShuffled && playlist.length > 1) {
+        final random = Random();
+        int prevIndex = _currentIndex;
+        while (prevIndex == _currentIndex) {
+          prevIndex = random.nextInt(playlist.length);
+        }
+        _currentIndex = prevIndex;
+      } else {
+        _currentIndex = (_currentIndex - 1 + playlist.length) % playlist.length;
+      }
+      _currentPosition = Duration.zero;
+      addRecentlyPlayedSong(playlist[_currentIndex]);
+      _safePlay(playlist[_currentIndex].audioUrl);
     }
-    _currentPosition = Duration.zero;
-    addRecentlyPlayedSong(playlist[_currentIndex]);
-    _safePlay(playlist[_currentIndex].audioUrl);
     notifyListeners();
   }
 
-  void playSong(Song song) {
+  /// Play a song. If [queue] is provided, sets the playback queue.
+  void playSong(Song song, {List<Song>? queue}) {
+    if (queue != null && queue.isNotEmpty) {
+      final qIdx = queue.indexOf(song);
+      setQueue(queue, startIndex: qIdx >= 0 ? qIdx : 0);
+    } else if (_queue.isNotEmpty) {
+      // If already in a queue, try to find the song in the current queue
+      final qIdx = _queue.indexOf(song);
+      if (qIdx != -1) {
+        _queueIndex = qIdx;
+      } else {
+        // Song not in current queue, clear queue and play globally
+        clearQueue();
+      }
+    }
     final index = playlist.indexOf(song);
     if (index != -1) {
       _currentIndex = index;
