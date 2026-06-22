@@ -213,10 +213,10 @@ class _SelectArtistsScreenState extends State<SelectArtistsScreen> {
                 const Padding(
                   padding: EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
                   child: Text(
-                    "Chọn thêm các nghệ sĩ\nbạn thích.",
+                    "Chọn thêm nghệ sĩ bạn thích",
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 32,
+                      fontSize: 26,
                       fontWeight: FontWeight.bold,
                       height: 1.2,
                     ),
@@ -224,27 +224,27 @@ class _SelectArtistsScreenState extends State<SelectArtistsScreen> {
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 8.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: TextField(
-                      controller: _searchController,
-                      style: const TextStyle(color: Colors.black),
-                      decoration: const InputDecoration(
-                        prefixIcon: Icon(Icons.search, color: Colors.black54),
-                        hintText: "Tìm kiếm",
-                        hintStyle: TextStyle(color: Colors.black54),
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(vertical: 12),
+                  child: TextField(
+                    controller: _searchController,
+                    style: const TextStyle(color: Colors.black),
+                    cursorColor: Colors.black87,
+                    decoration: InputDecoration(
+                      filled: true,
+                      fillColor: Colors.white,
+                      prefixIcon: const Icon(Icons.search, color: Colors.black54),
+                      hintText: "Tìm kiếm",
+                      hintStyle: const TextStyle(color: Colors.black54),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
                       ),
-                      onChanged: (val) {
-                        setState(() {
-                          _searchQuery = val.trim();
-                        });
-                      },
+                      contentPadding: const EdgeInsets.symmetric(vertical: 12),
                     ),
+                    onChanged: (val) {
+                      setState(() {
+                        _searchQuery = val.trim();
+                      });
+                    },
                   ),
                 ),
                 const SizedBox(height: 16),
