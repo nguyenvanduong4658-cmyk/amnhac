@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
 import 'screens/mainpage.dart';
 import 'screens/auth/welcome_screen.dart';
+import 'services/player_service.dart';
 
 void main() async {
   // Bắt tất cả lỗi không xử lý được để app không crash
@@ -29,6 +30,8 @@ void main() async {
         options: DefaultFirebaseOptions.currentPlatform,
       );
       debugPrint("Firebase initialized successfully.");
+      // Pre-warm PlayerService to trigger loadProfile() and database seeding
+      PlayerService();
     } catch (e) {
       debugPrint("Firebase initialization failed: $e. Running in offline/local fallback mode.");
     }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../services/player_service.dart';
 import '../../models/song.dart';
+import '../widgets/spinning_album_art.dart';
 import 'music_player_screen.dart';
 
 class LikedSongsScreen extends StatefulWidget {
@@ -11,7 +12,6 @@ class LikedSongsScreen extends StatefulWidget {
 }
 
 class _LikedSongsScreenState extends State<LikedSongsScreen> {
-  bool _isShuffled = false;
 
   void _openFullPlayer() {
     showModalBottomSheet(
@@ -23,6 +23,78 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
         heightFactor: 0.95,
         child: MusicPlayerScreen(),
       ),
+    );
+  }
+
+  void _showDevicesSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  "Kết nối với thiết bị",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(color: Colors.white10, height: 1),
+              ListTile(
+                leading: const Icon(Icons.phone_android, color: Color(0xFF1ED760)),
+                title: const Text("Điện thoại này (Thiết bị hiện tại)", style: TextStyle(color: Color(0xFF1ED760))),
+                trailing: const Icon(Icons.volume_up, color: Color(0xFF1ED760)),
+                onTap: () => Navigator.pop(ctx),
+              ),
+              ListTile(
+                leading: const Icon(Icons.speaker, color: Colors.white),
+                title: const Text("Loa Bluetooth phòng khách", style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Đang kết nối với Loa Bluetooth..."),
+                      backgroundColor: Color(0xFF1ED760),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.tv, color: Colors.white),
+                title: const Text("Tivi thông minh (Smart TV)", style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Đang truyền phát sang Smart TV..."),
+                      backgroundColor: Color(0xFF1ED760),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -248,8 +320,42 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
                             const SizedBox(width: 16),
                             // Download Icon
                             IconButton(
-                              icon: const Icon(Icons.arrow_circle_down_outlined, color: Colors.white60, size: 24),
-                              onPressed: () {},
+                              icon: Icon(
+                                likedSongs.isNotEmpty && likedSongs.every((s) => player.isSongDownloaded(s.title))
+                                    ? Icons.arrow_circle_down
+                                    : Icons.arrow_circle_down_outlined,
+                                color: likedSongs.isNotEmpty && likedSongs.every((s) => player.isSongDownloaded(s.title))
+                                    ? const Color(0xFF1ED760)
+                                    : Colors.white60,
+                                size: 24,
+                              ),
+                              onPressed: () async {
+                                if (likedSongs.isEmpty) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text("Chưa có bài hát đã thích nào để tải xuống"),
+                                      backgroundColor: Colors.redAccent,
+                                    ),
+                                  );
+                                  return;
+                                }
+                                final allDownloaded = likedSongs.every((s) => player.isSongDownloaded(s.title));
+                                final nextState = !allDownloaded;
+                                for (final song in likedSongs) {
+                                  if (player.isSongDownloaded(song.title) != nextState) {
+                                    await player.toggleDownloadSong(song.title);
+                                  }
+                                }
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(nextState ? "Đã tải xuống tất cả bài hát đã thích!" : "Đã xóa nội dung tải xuống!"),
+                                      backgroundColor: const Color(0xFF1ED760),
+                                      duration: const Duration(seconds: 1),
+                                    ),
+                                  );
+                                }
+                              },
                               padding: EdgeInsets.zero,
                               constraints: const BoxConstraints(),
                             ),
@@ -258,36 +364,62 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
                             IconButton(
                               icon: Icon(
                                 Icons.shuffle,
-                                color: _isShuffled ? const Color(0xFF1ED760) : Colors.white54,
+                                color: player.isShuffled ? const Color(0xFF1ED760) : Colors.white54,
                                 size: 22,
                               ),
-                              onPressed: () {
-                                setState(() {
-                                  _isShuffled = !_isShuffled;
-                                });
-                              },
+                              onPressed: () => player.toggleShuffle(),
                             ),
                             const SizedBox(width: 16),
                             // Green Circle Play button
-                            GestureDetector(
-                              onTap: () {
-                                if (likedSongs.isNotEmpty) {
-                                  player.playSong(likedSongs.first);
-                                }
+                            Builder(
+                              builder: (context) {
+                                final isLikedPlaying = player.isPlaying &&
+                                    likedSongs.isNotEmpty &&
+                                    likedSongs.any((s) => s.title == player.currentSong.title);
+
+                                return GestureDetector(
+                                  onTap: () {
+                                    if (likedSongs.isEmpty) {
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Text("Danh sách bài hát đã thích rỗng!"),
+                                          backgroundColor: Colors.redAccent,
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    if (isLikedPlaying) {
+                                      player.pause();
+                                    } else {
+                                      final index = likedSongs.indexWhere((s) => s.title == player.currentSong.title);
+                                      if (index != -1) {
+                                        player.play();
+                                      } else {
+                                        if (player.isShuffled) {
+                                          final randomSongs = List<Song>.from(likedSongs)..shuffle();
+                                          player.playSong(randomSongs.first);
+                                        } else {
+                                          player.playSong(likedSongs.first);
+                                        }
+                                      }
+                                    }
+                                  },
+                                  child: Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: const BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: Color(0xFF1ED760),
+                                    ),
+                                    child: Icon(
+                                      isLikedPlaying ? Icons.pause : Icons.play_arrow,
+                                      color: Colors.black,
+                                      size: 28,
+                                    ),
+                                  ),
+                                );
                               },
-                              child: Container(
-                                width: 48,
-                                height: 48,
-                                decoration: const BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: Color(0xFF1ED760),
-                                ),
-                                child: const Icon(
-                                  Icons.play_arrow,
-                                  color: Colors.black,
-                                  size: 28,
-                                ),
-                              ),
                             ),
                           ],
                         ),
@@ -462,20 +594,11 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
                               padding: const EdgeInsets.symmetric(horizontal: 8.0),
                               child: Row(
                                 children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Image.network(
-                                      song.albumArt,
-                                      width: 48,
-                                      height: 48,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (_, __, ___) => Container(
-                                        color: Colors.grey,
-                                        width: 48,
-                                        height: 48,
-                                        child: const Icon(Icons.music_note, color: Colors.white),
-                                      ),
-                                    ),
+                                  SpinningAlbumArt(
+                                    imageUrl: song.albumArt,
+                                    isPlaying: player.isPlaying,
+                                    size: 48,
+                                    isCircle: true,
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(
@@ -508,7 +631,7 @@ class _LikedSongsScreenState extends State<LikedSongsScreen> {
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.devices, color: Colors.white, size: 20),
-                                    onPressed: () {},
+                                    onPressed: () => _showDevicesSheet(context),
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints(),
                                   ),

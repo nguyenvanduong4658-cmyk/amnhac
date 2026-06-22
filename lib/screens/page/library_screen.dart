@@ -7,6 +7,7 @@ import '../../models/artist.dart';
 import 'playlist_detail_screen.dart';
 import 'artist_detail_screen.dart';
 import 'liked_songs_screen.dart';
+import 'select_artists_screen.dart';
 
 class LibraryScreen extends StatefulWidget {
   const LibraryScreen({super.key});
@@ -246,7 +247,11 @@ class _LibraryScreenState extends State<LibraryScreen> {
                       // 3. Dynamic Followed Artists
                       if (showArtists) ...[
                         ...filteredArtists.map(
-                          (artist) => _buildArtistTile(context, artist.name, artist.imageUrl),
+                          (artist) => _buildArtistTile(
+                            context,
+                            artist.name,
+                            player.getArtistImageUrl(artist.name, fallbackUrl: artist.imageUrl),
+                          ),
                         ),
                         if (_searchQuery.isEmpty) ...[
                           _buildAddArtistTile(context),
@@ -438,7 +443,12 @@ class _LibraryScreenState extends State<LibraryScreen> {
                 title: const Text("Thêm nghệ sĩ mới", style: TextStyle(color: Colors.white)),
                 onTap: () {
                   Navigator.pop(context);
-                  _createNewArtistPrompt();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SelectArtistsScreen(),
+                    ),
+                  );
                 },
               ),
             ],
@@ -951,7 +961,14 @@ class _LibraryScreenState extends State<LibraryScreen> {
           "Thêm nghệ sĩ",
           style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
         ),
-        onTap: _createNewArtistPrompt,
+        onTap: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => const SelectArtistsScreen(),
+            ),
+          );
+        },
       ),
     );
   }

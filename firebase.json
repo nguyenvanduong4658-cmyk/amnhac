@@ -1,0 +1,33 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "spotify-app-d67b1",
+          "appId": "1:208416790447:android:57d4fc848fc97aa32a415a",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "spotify-app-d67b1",
+          "configurations": {
+            "android": "1:208416790447:android:57d4fc848fc97aa32a415a",
+            "ios": "1:208416790447:ios:f2af16e4bb80eca32a415a",
+            "macos": "1:208416790447:ios:f2af16e4bb80eca32a415a",
+            "web": "1:208416790447:web:f849dc1c85b373952a415a",
+            "windows": "1:208416790447:web:e4c62e50aef19e972a415a"
+          }
+        }
+      }
+    }
+  },
+  "auth": {
+    "providers": {
+      "email": {
+        "enabled": true,
+        "passwordRequired": true
+      }
+    }
+  }
+}

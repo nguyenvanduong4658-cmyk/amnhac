@@ -1,8 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/player_service.dart';
 import '../../models/song.dart';
 import '../../models/artist.dart';
+import '../widgets/spinning_album_art.dart';
 import 'music_player_screen.dart';
 
 class ArtistDetailScreen extends StatefulWidget {
@@ -27,6 +29,379 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
         heightFactor: 0.95,
         child: MusicPlayerScreen(),
       ),
+    );
+  }
+
+  void _showDevicesSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  "Kết nối với thiết bị",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(color: Colors.white10, height: 1),
+              ListTile(
+                leading: const Icon(Icons.phone_android, color: Color(0xFF1ED760)),
+                title: const Text("Điện thoại này (Thiết bị hiện tại)", style: TextStyle(color: Color(0xFF1ED760))),
+                trailing: const Icon(Icons.volume_up, color: Color(0xFF1ED760)),
+                onTap: () => Navigator.pop(ctx),
+              ),
+              ListTile(
+                leading: const Icon(Icons.speaker, color: Colors.white),
+                title: const Text("Loa Bluetooth phòng khách", style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Đang kết nối với Loa Bluetooth..."),
+                      backgroundColor: Color(0xFF1ED760),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.tv, color: Colors.white),
+                title: const Text("Tivi thông minh (Smart TV)", style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Đang truyền phát sang Smart TV..."),
+                      backgroundColor: Color(0xFF1ED760),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showArtistMoreOptions(BuildContext context, PlayerService player) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  widget.artistName,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(color: Colors.white10, height: 1),
+              ListTile(
+                leading: Icon(
+                  _isFollowing ? Icons.person_remove_outlined : Icons.person_add_alt_1_outlined,
+                  color: Colors.white,
+                ),
+                title: Text(
+                  _isFollowing ? "Bỏ theo dõi nghệ sĩ" : "Theo dõi nghệ sĩ",
+                  style: const TextStyle(color: Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  setState(() {
+                    _isFollowing = !_isFollowing;
+                  });
+                  if (_isFollowing) {
+                    player.addFollowedArtist(widget.artistName, player.getArtistImageUrl(widget.artistName));
+                  } else {
+                    player.removeFollowedArtist(widget.artistName);
+                  }
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(_isFollowing ? "Đã theo dõi nghệ sĩ ${widget.artistName}" : "Đã bỏ theo dõi nghệ sĩ ${widget.artistName}"),
+                      backgroundColor: const Color(0xFF1ED760),
+                      duration: const Duration(seconds: 1),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share_outlined, color: Colors.white),
+                title: const Text("Chia sẻ nghệ sĩ", style: TextStyle(color: Colors.white)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await Clipboard.setData(ClipboardData(text: "https://open.spotify.com/artist/${widget.artistName.replaceAll(' ', '_')}"));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Đã sao chép liên kết chia sẻ nghệ sĩ vào khay nhớ tạm!"),
+                        backgroundColor: Color(0xFF1ED760),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAddToPlaylistSheet(BuildContext context, PlayerService player, String songTitle) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  "Thêm vào danh sách phát",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(color: Colors.white10, height: 1),
+              if (player.customPlaylists.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Text(
+                    "Chưa có danh sách phát nào.",
+                    style: TextStyle(color: Colors.white30),
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: player.customPlaylists.length,
+                    itemBuilder: (c, idx) {
+                      final playlistName = player.customPlaylists[idx];
+                      final isAdded = player.isSongInPlaylist(playlistName, songTitle);
+                      return ListTile(
+                        leading: const Icon(Icons.music_note, color: Colors.white),
+                        title: Text(playlistName, style: const TextStyle(color: Colors.white)),
+                        trailing: isAdded
+                            ? const Icon(Icons.check, color: Color(0xFF1ED760))
+                            : const Icon(Icons.add, color: Colors.white54),
+                        onTap: () async {
+                          if (isAdded) {
+                            await player.removeSongFromPlaylist(playlistName, songTitle);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Đã xóa khỏi danh sách phát $playlistName"),
+                                  backgroundColor: Colors.redAccent,
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          } else {
+                            await player.addSongToPlaylist(playlistName, songTitle);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Đã thêm vào danh sách phát $playlistName"),
+                                  backgroundColor: const Color(0xFF1ED760),
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          }
+                          Navigator.pop(ctx);
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showSongOptions(BuildContext context, Song song, PlayerService player) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final isLiked = player.isSongLiked(song);
+        final isDownloaded = player.isSongDownloaded(song.title);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.network(
+                    song.albumArt,
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                title: Text(
+                  song.title,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  song.artist,
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Divider(color: Colors.white10, height: 1),
+              ListTile(
+                leading: const Icon(Icons.play_arrow, color: Colors.white),
+                title: const Text("Phát bài hát", style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  player.playSong(song);
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.playlist_add, color: Colors.white),
+                title: const Text("Thêm vào danh sách phát", style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showAddToPlaylistSheet(context, player, song.title);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  isLiked ? Icons.favorite : Icons.favorite_border,
+                  color: isLiked ? const Color(0xFF1ED760) : Colors.white,
+                ),
+                title: Text(
+                  isLiked ? "Bỏ thích bài hát" : "Thích bài hát",
+                  style: TextStyle(color: isLiked ? const Color(0xFF1ED760) : Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  player.toggleLikeSong(song);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  isDownloaded ? Icons.download_done : Icons.download_outlined,
+                  color: isDownloaded ? const Color(0xFF1ED760) : Colors.white,
+                ),
+                title: Text(
+                  isDownloaded ? "Xóa nội dung tải xuống" : "Tải xuống bài hát",
+                  style: TextStyle(color: isDownloaded ? const Color(0xFF1ED760) : Colors.white),
+                ),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await player.toggleDownloadSong(song.title);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(isDownloaded ? "Đã xóa nội dung tải xuống" : "Đã tải xuống bài hát"),
+                        backgroundColor: const Color(0xFF1ED760),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share_outlined, color: Colors.white),
+                title: const Text("Chia sẻ bài hát", style: TextStyle(color: Colors.white)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await Clipboard.setData(ClipboardData(text: "https://open.spotify.com/track/${song.title.replaceAll(' ', '_')}"));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Đã sao chép liên kết bài hát vào khay nhớ tạm!"),
+                        backgroundColor: Color(0xFF1ED760),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -100,7 +475,10 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
       backgroundColor: const Color(0xFF121212),
       body: Stack(
         children: [
-          NestedScrollView(
+          AnimatedBuilder(
+            animation: player,
+            builder: (context, child) {
+              return NestedScrollView(
             headerSliverBuilder: (context, innerBoxIsScrolled) {
               return [
                 SliverAppBar(
@@ -115,7 +493,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                     background: Stack(
                       fit: StackFit.expand,
                       children: [
-                        _buildArtistBannerImage(artist.imageUrl),
+                        _buildArtistBannerImage(player.getArtistImageUrl(widget.artistName, fallbackUrl: artist.imageUrl)),
                         // Black gradient overlay bottom
                         Container(
                           decoration: const BoxDecoration(
@@ -258,43 +636,66 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 13,
-                                fontWeight: FontWeight.bold,
                               ),
                             ),
                           ),
-                          const SizedBox(width: 16),
                           // More options ... icon
                           IconButton(
                             icon: const Icon(Icons.more_horiz, color: Colors.white70, size: 24),
-                            onPressed: () {},
+                            onPressed: () => _showArtistMoreOptions(context, player),
                           ),
                           const Spacer(),
                           // Shuffle icon
                           IconButton(
-                            icon: const Icon(Icons.shuffle, color: Colors.white54, size: 22),
-                            onPressed: () {},
+                            icon: Icon(
+                              Icons.shuffle,
+                              color: player.isShuffled ? const Color(0xFF1ED760) : Colors.white54,
+                              size: 22,
+                            ),
+                            onPressed: () => player.toggleShuffle(),
                           ),
                           const SizedBox(width: 16),
                           // Play FAB button
-                          GestureDetector(
-                            onTap: () {
-                              if (artistSongs.isNotEmpty) {
-                                player.playSong(artistSongs.first);
-                              }
+                          Builder(
+                            builder: (context) {
+                              final isArtistPlaying = player.isPlaying &&
+                                  artistSongs.isNotEmpty &&
+                                  artistSongs.any((s) => s.title == player.currentSong.title);
+
+                              return GestureDetector(
+                                onTap: () {
+                                  if (artistSongs.isEmpty) return;
+                                  if (isArtistPlaying) {
+                                    player.pause();
+                                  } else {
+                                    final index = artistSongs.indexWhere((s) => s.title == player.currentSong.title);
+                                    if (index != -1) {
+                                      player.play();
+                                    } else {
+                                      if (player.isShuffled) {
+                                        final randomSongs = List<Song>.from(artistSongs)..shuffle();
+                                        player.playSong(randomSongs.first);
+                                      } else {
+                                        player.playSong(artistSongs.first);
+                                      }
+                                    }
+                                  }
+                                },
+                                child: Container(
+                                  width: 48,
+                                  height: 48,
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Color(0xFF1ED760),
+                                  ),
+                                  child: Icon(
+                                    isArtistPlaying ? Icons.pause : Icons.play_arrow,
+                                    color: Colors.black,
+                                    size: 28,
+                                  ),
+                                ),
+                              );
                             },
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Color(0xFF1ED760),
-                              ),
-                              child: const Icon(
-                                Icons.play_arrow,
-                                color: Colors.black,
-                                size: 28,
-                              ),
-                            ),
                           ),
                         ],
                       ),
@@ -430,7 +831,7 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                                   // More option vertical icon
                                   IconButton(
                                     icon: const Icon(Icons.more_vert, color: Colors.white54, size: 20),
-                                    onPressed: () {},
+                                    onPressed: () => _showSongOptions(context, song, player),
                                   ),
                                 ],
                               ),
@@ -444,6 +845,8 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                 ),
               ),
             ),
+              );
+            },
           ),
 
           // Floating Back Arrow (translucent background matching Spotify)
@@ -504,22 +907,13 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 8.0),
                             child: Row(
                               children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: Image.network(
-                                    song.albumArt,
-                                    width: 48,
-                                    height: 48,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, __, ___) => Container(
-                                      color: Colors.grey,
-                                      width: 48,
-                                      height: 48,
-                                      child: const Icon(Icons.music_note, color: Colors.white),
-                                    ),
+                                  SpinningAlbumArt(
+                                    imageUrl: song.albumArt,
+                                    isPlaying: player.isPlaying,
+                                    size: 48,
+                                    isCircle: true,
                                   ),
-                                ),
-                                const SizedBox(width: 10),
+                                  const SizedBox(width: 10),
                                 Expanded(
                                   child: Column(
                                     mainAxisAlignment: MainAxisAlignment.center,
@@ -548,12 +942,12 @@ class _ArtistDetailScreenState extends State<ArtistDetailScreen> {
                                     ],
                                   ),
                                 ),
-                                IconButton(
-                                  icon: const Icon(Icons.devices, color: Colors.white, size: 20),
-                                  onPressed: () {},
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                ),
+                                 IconButton(
+                                   icon: const Icon(Icons.devices, color: Colors.white, size: 20),
+                                   onPressed: () => _showDevicesSheet(context),
+                                   padding: EdgeInsets.zero,
+                                   constraints: const BoxConstraints(),
+                                 ),
                                 const SizedBox(width: 16),
                                 IconButton(
                                   icon: Icon(

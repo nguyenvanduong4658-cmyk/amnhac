@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../../services/player_service.dart';
 import '../../models/song.dart';
 import 'recently_played_screen.dart';
+import 'artist_detail_screen.dart';
+import '../widgets/spinning_album_art.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -84,6 +86,7 @@ class _HomePageState extends State<HomePage> {
                                 _buildPill("Tất cả"),
                                 _buildPill("Nhạc"),
                                 _buildPill("Đang theo dõi"),
+                                _buildPill("Podcasts"),
                               ],
                             ),
                           ),
@@ -107,7 +110,7 @@ class _HomePageState extends State<HomePage> {
                   const SizedBox(height: 24),
 
                   // Dynamic display based on selection
-                  if (_selectedCategory == "Tất cả" || _selectedCategory == "Nhạc") ...[
+                  if (_selectedCategory == "Tất cả") ...[
                     // Section 1: Tuyển tập hàng đầu của bạn
                     _buildSectionHeader("Tuyển tập hàng đầu của bạn"),
                     SizedBox(
@@ -270,6 +273,12 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ],
                   ],
+                  if (_selectedCategory == "Nhạc") ...[
+                    _buildMusicCategoryView(context, player),
+                  ],
+                  if (_selectedCategory == "Podcasts") ...[
+                    _buildPodcastsCategoryView(context, player),
+                  ],
                   if (_selectedCategory == "Đang theo dõi") ...[
                     _buildFollowingFeed(context, player),
                   ],
@@ -284,10 +293,10 @@ class _HomePageState extends State<HomePage> {
   }
 
   Widget _buildFollowingFeed(BuildContext context, PlayerService player) {
-    final songComeMyWay = player.playlist.firstWhere((s) => s.title == "Come My Way", orElse: () => player.playlist[0]);
-    final songTungQuen = player.playlist.firstWhere((s) => s.title == "Từng Quen", orElse: () => player.playlist[0]);
-    final songDuaEmVeNha = player.playlist.firstWhere((s) => s.title == "đưa em về nhàa", orElse: () => player.playlist[0]);
-    final songNeuLucDo = player.playlist.firstWhere((s) => s.title == "nếu lúc đó", orElse: () => player.playlist[0]);
+    final songComeMyWay = player.playlist.firstWhere((s) => s.title.toLowerCase().trim() == "come my way", orElse: () => player.playlist.firstWhere((s) => s.artist.contains("Sơn Tùng M-TP"), orElse: () => player.playlist[0]));
+    final songTungQuen = player.playlist.firstWhere((s) => s.title.toLowerCase().trim() == "từng quen", orElse: () => player.playlist.firstWhere((s) => s.artist.contains("Wren Evans"), orElse: () => player.playlist[0]));
+    final songDuaEmVeNha = player.playlist.firstWhere((s) => s.title.toLowerCase().trim() == "đưa em về nhàa", orElse: () => player.playlist.firstWhere((s) => s.artist.contains("GREY D"), orElse: () => player.playlist[0]));
+    final songNeuLucDo = player.playlist.firstWhere((s) => s.title.toLowerCase().trim() == "nếu lúc đó", orElse: () => player.playlist.firstWhere((s) => s.artist.contains("tlinh"), orElse: () => player.playlist[0]));
 
     final List<Map<String, dynamic>> releases = [
       {
@@ -401,9 +410,9 @@ class _HomePageState extends State<HomePage> {
                             Text(
                               "${item["subtitle"]} • ${item["timeAgo"]}",
                               style: const TextStyle(
-                                color: Colors.white54,
-                                fontSize: 12,
-                              ),
+                                  color: Colors.white54,
+                                  fontSize: 12,
+                                ),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -476,7 +485,14 @@ class _HomePageState extends State<HomePage> {
                       // Play Button
                       GestureDetector(
                         onTap: () {
-                          player.playSong(song);
+                          final isCurrentSong = player.currentSong.title.toLowerCase().trim() == song.title.toLowerCase().trim();
+                          if (isCurrentSong && player.isPlaying) {
+                            player.pause();
+                          } else if (isCurrentSong) {
+                            player.play();
+                          } else {
+                            player.playSong(song);
+                          }
                         },
                         child: Container(
                           width: 36,
@@ -485,8 +501,10 @@ class _HomePageState extends State<HomePage> {
                             shape: BoxShape.circle,
                             color: Colors.white,
                           ),
-                          child: const Icon(
-                            Icons.play_arrow,
+                          child: Icon(
+                            (player.currentSong.title.toLowerCase().trim() == song.title.toLowerCase().trim() && player.isPlaying)
+                                ? Icons.pause
+                                : Icons.play_arrow,
                             color: Colors.black,
                             size: 22,
                           ),
@@ -760,6 +778,269 @@ class _HomePageState extends State<HomePage> {
                 fontSize: 12,
               ),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMusicCategoryView(BuildContext context, PlayerService player) {
+    final songSonTung = player.playlist.firstWhere((s) => s.artist.contains("Sơn Tùng M-TP"), orElse: () => player.playlist[0]);
+    final songWren = player.playlist.firstWhere((s) => s.artist.contains("Wren Evans"), orElse: () => player.playlist[0]);
+    final songTlinh = player.playlist.firstWhere((s) => s.artist.contains("tlinh"), orElse: () => player.playlist[0]);
+    final songHieuThuHai = player.playlist.firstWhere((s) => s.artist.contains("HIEUTHUHAI"), orElse: () => player.playlist.length > 1 ? player.playlist[1] : player.playlist[0]);
+    final songGreyD = player.playlist.firstWhere((s) => s.artist.contains("GREY D"), orElse: () => player.playlist[0]);
+
+    // Build grid items dynamically using recently played items, with fallback to songs
+    final List<Map<String, dynamic>> gridItems = [];
+    final Set<String> seenTitles = {};
+
+    for (final item in player.recentlyPlayedList) {
+      if (gridItems.length >= 4) break;
+      if (!seenTitles.contains(item.title)) {
+        seenTitles.add(item.title);
+        gridItems.add({
+          'title': item.title,
+          'imageUrl': item.type == 'artist'
+              ? player.getArtistImageUrl(item.title, fallbackUrl: item.imageUrl)
+              : item.imageUrl,
+          'isCircularImage': item.type == 'artist',
+          'onTap': () {
+            if (item.type == 'artist') {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => ArtistDetailScreen(
+                    artistName: item.title,
+                  ),
+                ),
+              );
+            } else if (item.type == 'song') {
+              final songMatch = player.playlist.firstWhere(
+                (s) => s.title.toLowerCase() == item.title.toLowerCase(),
+                orElse: () => player.playlist.first,
+              );
+              player.playSong(songMatch);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text("Đang phát danh mục: ${item.title}"),
+                  backgroundColor: const Color(0xFF1ED760),
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            }
+          }
+        });
+      }
+    }
+
+    // Fallback to playlist songs if fewer than 4 items
+    if (gridItems.length < 4) {
+      final List<Song> fallbackSongs = [
+        songSonTung,
+        player.playlist.firstWhere((s) => s.title.toLowerCase() == "come my way", orElse: () => songSonTung),
+        songHieuThuHai,
+        songWren,
+        songTlinh,
+        songGreyD,
+      ];
+      for (final song in fallbackSongs) {
+        if (gridItems.length >= 4) break;
+        if (!seenTitles.contains(song.title)) {
+          seenTitles.add(song.title);
+          gridItems.add({
+            'title': song.title,
+            'imageUrl': song.albumArt,
+            'isCircularImage': false,
+            'onTap': () {
+              player.playSong(song);
+            }
+          });
+        }
+      }
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 1. Grid of 4 items
+        GridView.count(
+          crossAxisCount: 2,
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 2.7,
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          children: gridItems.map((item) {
+            return _buildGridCard(
+              title: item['title'] as String,
+              imageUrl: item['imageUrl'] as String,
+              isCircularImage: item['isCircularImage'] as bool,
+              onTap: item['onTap'] as VoidCallback,
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 24),
+
+        // 2. Section "Để bạn bắt đầu"
+        _buildSectionHeader("Để bạn bắt đầu"),
+        SizedBox(
+          height: 220,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(left: 16.0),
+            physics: const BouncingScrollPhysics(),
+            children: [
+              _buildSpotifyPlaylistCard(
+                context: context,
+                song: songSonTung,
+                bannerText: "Tuyển tập của VCT",
+                bannerColor: const Color(0xFF00E5FF),
+                textColor: Colors.black,
+                subtitle: "B Ray, HIEUTHUHAI và Sơn Tùng M-TP",
+                spotifyIconColor: Colors.white,
+                imageUrl: "https://images.unsplash.com/photo-1498038432885-c6f3f1b912ee?w=400&q=80",
+              ),
+              _buildSpotifyPlaylistCard(
+                context: context,
+                song: songHieuThuHai,
+                bannerText: "Tuyển tập của VSTRA",
+                bannerColor: const Color(0xFFFFB6C1),
+                textColor: Colors.black,
+                subtitle: "B Ray, HIEUTHUHAI và Sơn Tùng M-TP",
+                spotifyIconColor: Colors.white,
+                imageUrl: "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?w=400&q=80",
+              ),
+              _buildSpotifyPlaylistCard(
+                context: context,
+                song: songWren,
+                bannerText: "Tuyển tập của Wren",
+                bannerColor: const Color(0xFFFFCC80),
+                textColor: Colors.black,
+                subtitle: "Wren Evans, HIEUTHUHAI và MCK",
+                spotifyIconColor: Colors.white,
+                imageUrl: songWren.albumArt,
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+
+        // 3. Section "Hãy thử cách khác"
+        _buildSectionHeader("Hãy thử cách khác"),
+        SizedBox(
+          height: 220,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.only(left: 16.0),
+            physics: const BouncingScrollPhysics(),
+            children: [
+              _buildSpotifyPlaylistCard(
+                context: context,
+                song: songTlinh,
+                bannerText: "Workday K-Pop\n내적댄스 업무/공부",
+                bannerColor: Colors.black54,
+                textColor: Colors.white,
+                subtitle: "BTS, JENNIE, KATSEYE, CORTIS, BLACKPINK",
+                spotifyIconColor: Colors.white,
+                imageUrl: "https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=400&q=80",
+                hasTextOverlay: true,
+              ),
+              _buildSpotifyPlaylistCard(
+                context: context,
+                song: songGreyD,
+                bannerText: "situationship",
+                bannerColor: Colors.black54,
+                textColor: Colors.white,
+                subtitle: "Taylor Swift, The Weeknd, Olivia Rodrigo, Billie Eilish",
+                spotifyIconColor: Colors.white,
+                imageUrl: "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&q=80",
+                hasTextOverlay: true,
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPodcastsCategoryView(BuildContext context, PlayerService player) {
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.mic, size: 64, color: Color(0xFF1ED760)),
+            const SizedBox(height: 16),
+            const Text(
+              "Podcasts dành cho bạn",
+              style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              "Các chương trình và nội dung nói chuyện sẽ hiển thị ở đây.",
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 13),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGridCard({
+    required String title,
+    required String imageUrl,
+    required bool isCircularImage,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFF2A2A2A),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Row(
+          children: [
+            isCircularImage
+                ? Padding(
+                    padding: const EdgeInsets.all(6.0),
+                    child: CircleAvatar(
+                      radius: 20,
+                      backgroundImage: NetworkImage(imageUrl),
+                    ),
+                  )
+                : Image.network(
+                    imageUrl,
+                    width: 56,
+                    height: 56,
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, __, ___) => Container(
+                      color: Colors.grey[800],
+                      width: 56,
+                      height: 56,
+                      child: const Icon(Icons.music_note, color: Colors.white24),
+                    ),
+                  ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                title,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
           ],
         ),
       ),

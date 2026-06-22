@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -539,6 +540,8 @@ class PlayerService extends ChangeNotifier {
   Duration _currentPosition = Duration.zero;
   Duration _totalDuration = const Duration(minutes: 4);
   AudioPlayer _audioPlayer = AudioPlayer();
+  bool _isShuffled = false;
+  bool _isRepeating = false;
 
   // Profile data
   String _userName = "Văn Dương";
@@ -564,6 +567,18 @@ class PlayerService extends ChangeNotifier {
   bool get isPlaying => _isPlaying;
   Duration get currentPosition => _currentPosition;
   Duration get totalDuration => _totalDuration;
+  bool get isShuffled => _isShuffled;
+  bool get isRepeating => _isRepeating;
+
+  void toggleShuffle() {
+    _isShuffled = !_isShuffled;
+    notifyListeners();
+  }
+
+  void toggleRepeating() {
+    _isRepeating = !_isRepeating;
+    notifyListeners();
+  }
 
   String get userName => _userName;
   String get userEmail => _userEmail;
@@ -579,6 +594,49 @@ class PlayerService extends ChangeNotifier {
   List<String> get registeredAccounts => _registeredAccounts;
   List<RecentlyPlayedItem> get recentlyPlayedList => _recentlyPlayedList;
   List<Artist> get followedArtists => _followedArtists;
+
+  String getArtistImageUrl(String artistName, {String? fallbackUrl}) {
+    final cleanArtistName = artistName.toLowerCase().trim();
+    
+    // 1. Try to find a song by this artist in the playlist that has a working (non-ZingMP3) URL
+    try {
+      final song = playlist.firstWhere(
+        (s) => (s.artist.toLowerCase().contains(cleanArtistName) ||
+                cleanArtistName.contains(s.artist.toLowerCase())) &&
+               s.albumArt.isNotEmpty &&
+               !s.albumArt.contains("zmdcdn.me") &&
+               !s.albumArt.contains("photo-resize"),
+      );
+      return song.albumArt;
+    } catch (_) {}
+    
+    // 2. If not found, try to find ANY song by this artist even if it's a ZingMP3 URL
+    try {
+      final song = playlist.firstWhere(
+        (s) => (s.artist.toLowerCase().contains(cleanArtistName) ||
+                cleanArtistName.contains(s.artist.toLowerCase())) &&
+               s.albumArt.isNotEmpty,
+      );
+      return song.albumArt;
+    } catch (_) {}
+    
+    // 3. Check followedArtists list
+    try {
+      final artist = _followedArtists.firstWhere(
+        (a) => a.name.toLowerCase() == cleanArtistName,
+      );
+      if (artist.imageUrl.isNotEmpty) {
+        return artist.imageUrl;
+      }
+    } catch (_) {}
+    
+    // 4. Fallback
+    if (fallbackUrl != null && fallbackUrl.isNotEmpty) {
+      return fallbackUrl;
+    }
+    
+    return "https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=400&q=80";
+  }
 
   bool isSongDownloaded(String title) {
     return _downloadedSongTitles.contains(title);
@@ -617,7 +675,13 @@ class PlayerService extends ChangeNotifier {
       notifyListeners();
     }, cancelOnError: false);
     _audioPlayer.onPlayerComplete.listen((event) {
-      next();
+      if (_isRepeating) {
+        _currentPosition = Duration.zero;
+        _safePlay(currentSong.audioUrl);
+        notifyListeners();
+      } else {
+        next();
+      }
     }, onError: (err) {
       print("AudioPlayer Complete Error: $err");
       _isPlaying = false;
@@ -648,13 +712,49 @@ class PlayerService extends ChangeNotifier {
 
       playlist.clear();
       if (!needsSeeding) {
+        final Map<String, List<QueryDocumentSnapshot<Map<String, dynamic>>>> groupedSongs = {};
         for (final doc in songsSnapshot.docs) {
           final data = doc.data();
+          final titleStr = (data['title'] ?? '').toString().trim().toLowerCase();
+          final artistStr = (data['artist'] ?? '').toString().trim().toLowerCase();
+          final key = "$titleStr|$artistStr";
+          groupedSongs.putIfAbsent(key, () => []).add(doc);
+        }
+
+        for (final key in groupedSongs.keys) {
+          final docs = groupedSongs[key]!;
+          QueryDocumentSnapshot<Map<String, dynamic>> keepDoc = docs.first;
+
+          if (docs.length > 1) {
+            // Find the best one (prefer non-empty, non-unsplash, valid URL)
+            for (final doc in docs) {
+              final data = doc.data();
+              final albumArtStr = (data['albumArt'] ?? '').toString().trim();
+              if (albumArtStr.isNotEmpty &&
+                  albumArtStr.startsWith('http') &&
+                  !albumArtStr.contains('unsplash.com')) {
+                keepDoc = doc;
+                break;
+              }
+            }
+
+            // Delete the duplicates from Firestore
+            for (final doc in docs) {
+              if (doc.id != keepDoc.id) {
+                FirebaseFirestore.instance.collection('songs').doc(doc.id).delete().catchError((e) {
+                  print("Error deleting duplicate song doc ${doc.id}: $e");
+                });
+              }
+            }
+          }
+
+          final data = keepDoc.data();
           final titleStr = (data['title'] ?? '').toString().trim();
           String albumArtStr = (data['albumArt'] ?? '').toString().trim();
           if (albumArtStr.contains("domain.com") && _realCoverArts.containsKey(titleStr)) {
             albumArtStr = _realCoverArts[titleStr]!;
           }
+
           playlist.add(Song(
             title: titleStr,
             artist: (data['artist'] ?? '').toString().trim(),
@@ -1053,6 +1153,138 @@ class PlayerService extends ChangeNotifier {
       return "Lỗi kết nối hệ thống!";
     }
   }
+
+  // Send a password reset email using FirebaseAuthRest
+  Future<String?> sendPasswordReset(String email) async {
+    try {
+      await FirebaseAuthRest.sendPasswordResetEmail(email: email);
+      return null; // success
+    } on FirebaseAuthRestException catch (e) {
+      return e.message;
+    } catch (e) {
+      return "Lỗi kết nối hệ thống!";
+    }
+  }
+
+  // Re-authenticate and change password for the current user.
+  // Updates local saved_accounts list to keep the new password sync.
+  Future<String?> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    try {
+      if (_userEmail.isEmpty) {
+        return "Không tìm thấy thông tin email của tài khoản!";
+      }
+
+      // Step 1: Re-authenticate to get a fresh idToken
+      final signInResult = await FirebaseAuthRest.signIn(
+        email: _userEmail,
+        password: currentPassword,
+      );
+      final idToken = signInResult['idToken'] as String;
+
+      // Step 2: Update the password on Firebase
+      await FirebaseAuthRest.updatePassword(
+        idToken: idToken,
+        newPassword: newPassword,
+      );
+
+      // Step 3: Update local SharedPreferences saved_accounts list
+      final prefs = await SharedPreferences.getInstance();
+      for (int i = 0; i < _savedAccounts.length; i++) {
+        final parts = _savedAccounts[i].split('|');
+        if (parts.length >= 2 && parts[1].toLowerCase() == _userEmail.toLowerCase()) {
+          final name = parts[0];
+          final email = parts[1];
+          final phone = parts[2];
+          final img = parts.length >= 4 ? parts[3] : 'null';
+          _savedAccounts[i] = "$name|$email|$phone|$img|$newPassword";
+          break;
+        }
+      }
+      await prefs.setStringList('saved_accounts', _savedAccounts);
+      notifyListeners();
+
+      return null; // success
+    } on FirebaseAuthRestException catch (e) {
+      return e.message;
+    } catch (e) {
+      return "Lỗi kết nối hệ thống!";
+    }
+  }
+
+  // Re-authenticate and delete the current user account from Firebase and Firestore.
+  Future<String?> deleteAccount({
+    required String password,
+  }) async {
+    try {
+      if (_userEmail.isEmpty) {
+        return "Không tìm thấy thông tin email của tài khoản!";
+      }
+
+      // Step 1: Re-authenticate to get a fresh idToken
+      final signInResult = await FirebaseAuthRest.signIn(
+        email: _userEmail,
+        password: password,
+      );
+      final idToken = signInResult['idToken'] as String;
+      final uid = _currentUid;
+
+      // Step 2: Delete user from Firebase Auth
+      await FirebaseAuthRest.deleteAccount(idToken: idToken);
+
+      // Step 3: Remove user document and other data from Firestore (best effort/optional but clean)
+      if (uid != null) {
+        try {
+          await FirebaseFirestore.instance.collection('users').doc(uid).delete();
+          await FirebaseFirestore.instance.collection('likes').doc(uid).delete();
+          await FirebaseFirestore.instance.collection('playlists').doc(uid).delete();
+          await FirebaseFirestore.instance.collection('playlist_songs').doc(uid).delete();
+          await FirebaseFirestore.instance.collection('playlist_covers').doc(uid).delete();
+          await FirebaseFirestore.instance.collection('followed_artists').doc(uid).delete();
+          await FirebaseFirestore.instance.collection('recently_played').doc(uid).delete();
+        } catch (e) {
+          print("Error cleaning up Firestore data for deleted user: $e");
+        }
+      }
+
+      // Step 4: Remove account from SharedPreferences saved accounts list
+      final emailToDelete = _userEmail;
+      final prefs = await SharedPreferences.getInstance();
+      _savedAccounts.removeWhere((accStr) {
+        final parts = accStr.split('|');
+        return parts.length >= 2 && parts[1].toLowerCase() == emailToDelete.toLowerCase();
+      });
+      await prefs.setStringList('saved_accounts', _savedAccounts);
+
+      // Step 5: Log out / reset state
+      await prefs.setBool('user_logged_in', false);
+      await prefs.remove('current_uid');
+      pause();
+      
+      _currentUid = null;
+      _userName = "Người dùng";
+      _userEmail = "";
+      _userPhone = "0909090909";
+      _userImagePath = null;
+      _likedSongTitles.clear();
+      _customPlaylists.clear();
+      _playlistSongs.clear();
+      _playlistCovers.clear();
+      _followedArtists.clear();
+      _recentlyPlayedList.clear();
+
+      notifyListeners();
+
+      return null; // success
+    } on FirebaseAuthRestException catch (e) {
+      return e.message;
+    } catch (e) {
+      return "Lỗi kết nối hệ thống!";
+    }
+  }
+
 
   // Add a new account directly to switcher list (mostly for automated add triggers)
   Future<void> addAccount(String name, String email, String phone, String password) async {
@@ -1487,7 +1719,16 @@ class PlayerService extends ChangeNotifier {
   }
 
   void next() {
-    _currentIndex = (_currentIndex + 1) % playlist.length;
+    if (_isShuffled && playlist.length > 1) {
+      final random = Random();
+      int nextIndex = _currentIndex;
+      while (nextIndex == _currentIndex) {
+        nextIndex = random.nextInt(playlist.length);
+      }
+      _currentIndex = nextIndex;
+    } else {
+      _currentIndex = (_currentIndex + 1) % playlist.length;
+    }
     _currentPosition = Duration.zero;
     addRecentlyPlayedSong(playlist[_currentIndex]);
     _safePlay(playlist[_currentIndex].audioUrl);
@@ -1495,7 +1736,16 @@ class PlayerService extends ChangeNotifier {
   }
 
   void previous() {
-    _currentIndex = (_currentIndex - 1 + playlist.length) % playlist.length;
+    if (_isShuffled && playlist.length > 1) {
+      final random = Random();
+      int prevIndex = _currentIndex;
+      while (prevIndex == _currentIndex) {
+        prevIndex = random.nextInt(playlist.length);
+      }
+      _currentIndex = prevIndex;
+    } else {
+      _currentIndex = (_currentIndex - 1 + playlist.length) % playlist.length;
+    }
     _currentPosition = Duration.zero;
     addRecentlyPlayedSong(playlist[_currentIndex]);
     _safePlay(playlist[_currentIndex].audioUrl);

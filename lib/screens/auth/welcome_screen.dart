@@ -28,10 +28,11 @@ class WelcomePage extends StatelessWidget {
                 children: [
                   const Spacer(),
                   // Spotify Icon
-                  const Icon(
-                    Icons.radio_rounded,
-                    size: 80,
-                    color: Color(0xFF1ED760),
+                  Image.asset(
+                    'assets/images/spotify_logo.png',
+                    height: 80,
+                    width: 80,
+                    fit: BoxFit.contain,
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -69,18 +70,6 @@ class WelcomePage extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  // Alternative sign ins styled elegantly
-                  _buildAlternativeButton(
-                    icon: Icons.phone_android,
-                    label: "Tiếp tục bằng số điện thoại",
-                  ),
-                  const SizedBox(height: 12),
-                  _buildAlternativeButton(
-                    icon: Icons.g_mobiledata,
-                    label: "Tiếp tục bằng Google",
-                    iconSize: 28,
-                  ),
                   const SizedBox(height: 20),
                   // Log in button
                   TextButton(
@@ -105,38 +94,6 @@ class WelcomePage extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildAlternativeButton({
-    required IconData icon,
-    required String label,
-    double iconSize = 20,
-  }) {
-    return SizedBox(
-      width: double.infinity,
-      height: 48,
-      child: OutlinedButton(
-        style: OutlinedButton.styleFrom(
-          side: const BorderSide(color: Colors.white30, width: 1),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24),
-          ),
-          foregroundColor: Colors.white,
-        ),
-        onPressed: () {},
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: iconSize, color: Colors.white),
-            const SizedBox(width: 10),
-            Text(
-              label,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
       ),
     );
   }

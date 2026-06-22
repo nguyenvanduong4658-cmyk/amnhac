@@ -222,7 +222,68 @@ class ProfileDrawer extends StatelessWidget {
                 _buildDrawerItem(
                   icon: Icons.campaign_outlined,
                   title: "Tin cập nhật",
-                  onTap: () {},
+                  onTap: () {
+                    Navigator.pop(context); // close drawer
+                    showModalBottomSheet(
+                      context: context,
+                      backgroundColor: const Color(0xFF1E1E1E),
+                      shape: const RoundedRectangleBorder(
+                        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                      ),
+                      builder: (ctx) {
+                        return SafeArea(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16.0),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Center(
+                                  child: Container(
+                                    width: 40,
+                                    height: 4,
+                                    decoration: const BoxDecoration(
+                                      color: Colors.white24,
+                                      borderRadius: BorderRadius.all(Radius.circular(2)),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                const Text(
+                                  "Tin cập nhật",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+                                Flexible(
+                                  child: ListView(
+                                    shrinkWrap: true,
+                                    children: [
+                                      ListTile(
+                                        leading: const Icon(Icons.music_note, color: Color(0xFF1ED760)),
+                                        title: const Text("Bài hát mới từ nghệ sĩ bạn theo dõi", style: TextStyle(color: Colors.white)),
+                                        subtitle: const Text("Các nghệ sĩ yêu thích của bạn vừa cập nhật nhạc mới!", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                        onTap: () => Navigator.pop(ctx),
+                                      ),
+                                      ListTile(
+                                        leading: const Icon(Icons.star, color: Colors.amber),
+                                        title: const Text("Ưu đãi Premium", style: TextStyle(color: Colors.white)),
+                                        subtitle: const Text("Kích hoạt dùng thử Premium 1 tháng miễn phí ngay.", style: TextStyle(color: Colors.white54, fontSize: 12)),
+                                        onTap: () => Navigator.pop(ctx),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    );
+                  },
                 ),
                 _buildDrawerItem(
                   icon: Icons.settings_outlined,

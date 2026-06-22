@@ -127,11 +127,12 @@ class _RegisterPageState extends State<RegisterPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Center(
-                    child: Icon(
-                      Icons.radio_rounded,
-                      size: 64,
-                      color: Color(0xFF1ED760),
+                  Center(
+                    child: Image.asset(
+                      'assets/images/spotify_logo.png',
+                      height: 64,
+                      width: 64,
+                      fit: BoxFit.contain,
                     ),
                   ),
                   const SizedBox(height: 32),

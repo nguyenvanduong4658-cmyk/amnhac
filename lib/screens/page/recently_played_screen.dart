@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../services/player_service.dart';
 import '../../models/recently_played.dart';
 import '../widgets/nav_widget.dart';
+import '../widgets/spinning_album_art.dart';
 import '../mainpage.dart';
 import 'music_player_screen.dart';
 
@@ -205,20 +206,11 @@ class _RecentlyPlayedPageState extends State<RecentlyPlayedPage> {
                               padding: const EdgeInsets.symmetric(horizontal: 8.0),
                               child: Row(
                                 children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: Image.network(
-                                      song.albumArt,
-                                      width: 48,
-                                      height: 48,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (context, error, stackTrace) => Container(
-                                        color: Colors.grey,
-                                        width: 48,
-                                        height: 48,
-                                        child: const Icon(Icons.music_note, color: Colors.white),
-                                      ),
-                                    ),
+                                  SpinningAlbumArt(
+                                    imageUrl: song.albumArt,
+                                    isPlaying: player.isPlaying,
+                                    size: 48,
+                                    isCircle: true,
                                   ),
                                   const SizedBox(width: 10),
                                   Expanded(

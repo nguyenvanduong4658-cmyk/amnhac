@@ -70,7 +70,43 @@ class PremiumScreen extends StatelessWidget {
                         ),
                         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        showDialog(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            backgroundColor: const Color(0xFF1E1E1E),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            title: const Row(
+                              children: [
+                                Icon(Icons.stars, color: Color(0xFF1ED760), size: 28),
+                                SizedBox(width: 8),
+                                Text(
+                                  "Đăng ký Premium",
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                                ),
+                              ],
+                            ),
+                            content: const Text(
+                              "Chúc mừng! Bạn đã kích hoạt thành công 1 tháng dùng thử Premium miễn phí. Hãy tận hưởng âm nhạc chất lượng cao không quảng cáo ngay bây giờ!",
+                              style: TextStyle(color: Colors.white70, fontSize: 14),
+                            ),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(ctx),
+                                child: const Text(
+                                  "BẮT ĐẦU NGHE",
+                                  style: TextStyle(
+                                    color: Color(0xFF1ED760),
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
                       child: const Text(
                         "DÙNG THỬ 1 THÁNG MIỄN PHÍ",
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),

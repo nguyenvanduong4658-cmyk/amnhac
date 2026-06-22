@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../screens/widgets/nav_widget.dart';
 import '../screens/widgets/drawer_widget.dart';
+import '../screens/widgets/spinning_album_art.dart';
 import '../screens/page/home_screen.dart';
 import '../screens/page/search_screen.dart';
 import '../screens/page/library_screen.dart';
@@ -202,20 +203,11 @@ class _MainPageState extends State<MainPage> {
                             child: Row(
                               children: [
                                 // Album cover
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: Image.network(
-                                    song.albumArt,
-                                    width: 48,
-                                    height: 48,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (context, error, stackTrace) => Container(
-                                      color: Colors.grey,
-                                      width: 48,
-                                      height: 48,
-                                      child: const Icon(Icons.music_note, color: Colors.white),
-                                    ),
-                                  ),
+                                SpinningAlbumArt(
+                                  imageUrl: song.albumArt,
+                                  isPlaying: player.isPlaying,
+                                  size: 48,
+                                  isCircle: true,
                                 ),
                                 const SizedBox(width: 10),
                                 // Metadata

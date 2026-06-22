@@ -1,6 +1,8 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/player_service.dart';
+import 'artist_detail_screen.dart';
 
 class MusicPlayerScreen extends StatefulWidget {
   const MusicPlayerScreen({super.key});
@@ -9,11 +11,9 @@ class MusicPlayerScreen extends StatefulWidget {
   State<MusicPlayerScreen> createState() => _MusicPlayerScreenState();
 }
 
-class _MusicPlayerScreenState extends State<MusicPlayerScreen> with SingleTickerProviderStateMixin {
+class _MusicPlayerScreenState extends State<MusicPlayerScreen> with TickerProviderStateMixin {
   late AnimationController _playPauseAnimationController;
-  final ScrollController _lyricScrollController = ScrollController();
-  bool _shuffle = false;
-  bool _repeat = false;
+  late AnimationController _rotationController;
 
   @override
   void initState() {
@@ -22,15 +22,20 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> with SingleTicker
       vsync: this,
       duration: const Duration(milliseconds: 200),
     );
+    _rotationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 20),
+    );
     if (PlayerService().isPlaying) {
       _playPauseAnimationController.forward();
+      _rotationController.repeat();
     }
   }
 
   @override
   void dispose() {
     _playPauseAnimationController.dispose();
-    _lyricScrollController.dispose();
+    _rotationController.dispose();
     super.dispose();
   }
 
@@ -40,15 +45,229 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> with SingleTicker
     return "$minutes:$seconds";
   }
 
-  void _scrollToActiveLyric(int activeIndex) {
-    if (_lyricScrollController.hasClients && activeIndex >= 0) {
-      final targetOffset = activeIndex * 48.0;
-      _lyricScrollController.animateTo(
-        targetOffset,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-    }
+
+
+  void _showAddToPlaylistSheet(BuildContext context, PlayerService player, String songTitle) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 12),
+                child: Text(
+                  "Thêm vào danh sách phát",
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const Divider(color: Colors.white10, height: 1),
+              if (player.customPlaylists.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 32),
+                  child: Text(
+                    "Chưa có danh sách phát nào.",
+                    style: TextStyle(color: Colors.white30),
+                  ),
+                )
+              else
+                Flexible(
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: player.customPlaylists.length,
+                    itemBuilder: (c, idx) {
+                      final playlistName = player.customPlaylists[idx];
+                      final isAdded = player.isSongInPlaylist(playlistName, songTitle);
+                      return ListTile(
+                        leading: const Icon(Icons.music_note, color: Colors.white),
+                        title: Text(playlistName, style: const TextStyle(color: Colors.white)),
+                        trailing: isAdded
+                            ? const Icon(Icons.check, color: Color(0xFF1ED760))
+                            : const Icon(Icons.add, color: Colors.white54),
+                        onTap: () async {
+                          if (isAdded) {
+                            await player.removeSongFromPlaylist(playlistName, songTitle);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Đã xóa khỏi danh sách phát $playlistName"),
+                                  backgroundColor: Colors.redAccent,
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          } else {
+                            await player.addSongToPlaylist(playlistName, songTitle);
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text("Đã thêm vào danh sách phát $playlistName"),
+                                  backgroundColor: const Color(0xFF1ED760),
+                                  duration: const Duration(seconds: 1),
+                                ),
+                              );
+                            }
+                          }
+                          Navigator.pop(ctx);
+                        },
+                      );
+                    },
+                  ),
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showPlayerOptions(BuildContext context, PlayerService player) {
+    final song = player.currentSong;
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) {
+        final isLiked = player.isSongLiked(song);
+        final isDownloaded = player.isSongDownloaded(song.title);
+        return SafeArea(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white24,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              ListTile(
+                leading: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.network(
+                    song.albumArt,
+                    width: 40,
+                    height: 40,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                title: Text(
+                  song.title,
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                subtitle: Text(
+                  song.artist,
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              const Divider(color: Colors.white10, height: 1),
+              ListTile(
+                leading: const Icon(Icons.playlist_add, color: Colors.white),
+                title: const Text("Thêm vào danh sách phát", style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  _showAddToPlaylistSheet(context, player, song.title);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  isLiked ? Icons.favorite : Icons.favorite_border,
+                  color: isLiked ? const Color(0xFF1ED760) : Colors.white,
+                ),
+                title: Text(
+                  isLiked ? "Bỏ thích bài hát" : "Thích bài hát",
+                  style: TextStyle(color: isLiked ? const Color(0xFF1ED760) : Colors.white),
+                ),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  player.toggleLikeSong(song);
+                },
+              ),
+              ListTile(
+                leading: Icon(
+                  isDownloaded ? Icons.download_done : Icons.download_outlined,
+                  color: isDownloaded ? const Color(0xFF1ED760) : Colors.white,
+                ),
+                title: Text(
+                  isDownloaded ? "Xóa nội dung tải xuống" : "Tải xuống bài hát",
+                  style: TextStyle(color: isDownloaded ? const Color(0xFF1ED760) : Colors.white),
+                ),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await player.toggleDownloadSong(song.title);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text(isDownloaded ? "Đã xóa nội dung tải xuống" : "Đã tải xuống bài hát"),
+                        backgroundColor: const Color(0xFF1ED760),
+                        duration: const Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.person_outline, color: Colors.white),
+                title: const Text("Xem thông tin nghệ sĩ", style: TextStyle(color: Colors.white)),
+                onTap: () {
+                  Navigator.pop(ctx); // Close sheet
+                  Navigator.pop(context); // Close player screen
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ArtistDetailScreen(artistName: song.artist),
+                    ),
+                  );
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.share_outlined, color: Colors.white),
+                title: const Text("Chia sẻ bài hát", style: TextStyle(color: Colors.white)),
+                onTap: () async {
+                  Navigator.pop(ctx);
+                  await Clipboard.setData(ClipboardData(text: "https://open.spotify.com/track/${song.title.replaceAll(' ', '_')}"));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text("Đã sao chép liên kết bài hát vào khay nhớ tạm!"),
+                        backgroundColor: Color(0xFF1ED760),
+                        duration: Duration(seconds: 1),
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -67,27 +286,10 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> with SingleTicker
 
         if (player.isPlaying) {
           _playPauseAnimationController.forward();
+          _rotationController.repeat();
         } else {
           _playPauseAnimationController.reverse();
-        }
-
-        int activeLyricIndex = -1;
-        if (song.lyrics.isNotEmpty && player.totalDuration.inSeconds > 0) {
-          final secondsPerLyric = player.totalDuration.inSeconds / song.lyrics.length;
-          if (secondsPerLyric > 0) {
-            final double idxDouble = player.currentPosition.inSeconds / secondsPerLyric;
-            if (idxDouble.isFinite) {
-              activeLyricIndex = idxDouble.floor();
-            }
-          }
-          if (activeLyricIndex >= song.lyrics.length) {
-            activeLyricIndex = song.lyrics.length - 1;
-          }
-          if (activeLyricIndex >= 0) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              _scrollToActiveLyric(activeLyricIndex);
-            });
-          }
+          _rotationController.stop(canceled: false);
         }
 
         return Scaffold(
@@ -147,27 +349,30 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> with SingleTicker
                           ),
                           IconButton(
                             icon: const Icon(Icons.more_vert, color: Colors.white),
-                            onPressed: () {},
+                            onPressed: () => _showPlayerOptions(context, player),
                           ),
                         ],
                       ),
                       const Spacer(),
-                      // Album Artwork
-                      Container(
-                        width: MediaQuery.of(context).size.width * 0.82,
-                        height: MediaQuery.of(context).size.width * 0.82,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.5),
-                              blurRadius: 25,
-                              spreadRadius: 2,
+                      // Album Artwork (CD / Vinyl rotation transition)
+                      RotationTransition(
+                        turns: _rotationController,
+                        child: Container(
+                          width: MediaQuery.of(context).size.width * 0.82,
+                          height: MediaQuery.of(context).size.width * 0.82,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.5),
+                                blurRadius: 25,
+                                spreadRadius: 2,
+                              ),
+                            ],
+                            image: DecorationImage(
+                              image: NetworkImage(song.albumArt),
+                              fit: BoxFit.cover,
                             ),
-                          ],
-                          image: DecorationImage(
-                            image: NetworkImage(song.albumArt),
-                            fit: BoxFit.cover,
                           ),
                         ),
                       ),
@@ -260,14 +465,10 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> with SingleTicker
                           IconButton(
                             icon: Icon(
                               Icons.shuffle,
-                              color: _shuffle ? const Color(0xFF1ED760) : Colors.white,
+                              color: player.isShuffled ? const Color(0xFF1ED760) : Colors.white,
                               size: 26,
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _shuffle = !_shuffle;
-                              });
-                            },
+                            onPressed: () => player.toggleShuffle(),
                           ),
                           IconButton(
                             icon: const Icon(Icons.skip_previous, color: Colors.white, size: 40),
@@ -299,97 +500,14 @@ class _MusicPlayerScreenState extends State<MusicPlayerScreen> with SingleTicker
                           IconButton(
                             icon: Icon(
                               Icons.repeat,
-                              color: _repeat ? const Color(0xFF1ED760) : Colors.white,
+                              color: player.isRepeating ? const Color(0xFF1ED760) : Colors.white,
                               size: 26,
                             ),
-                            onPressed: () {
-                              setState(() {
-                                _repeat = !_repeat;
-                              });
-                            },
+                            onPressed: () => player.toggleRepeating(),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
-                      // Lyrics Container
-                      Expanded(
-                        child: Container(
-                          width: double.infinity,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: song.themeColor.withOpacity(0.3),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Colors.white.withOpacity(0.1),
-                              width: 1,
-                            ),
-                          ),
-                          clipBehavior: Clip.antiAlias,
-                          child: BackdropFilter(
-                            filter: ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      const Text(
-                                        "Lời bài hát",
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: Colors.white12,
-                                          borderRadius: BorderRadius.circular(12),
-                                        ),
-                                        child: const Row(
-                                          children: [
-                                            Icon(Icons.open_in_full, size: 10, color: Colors.white),
-                                            SizedBox(width: 4),
-                                            Text(
-                                              "Mở rộng",
-                                              style: TextStyle(color: Colors.white, fontSize: 10),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Expanded(
-                                    child: ListView.builder(
-                                      controller: _lyricScrollController,
-                                      itemCount: song.lyrics.length,
-                                      itemExtent: 48.0,
-                                      itemBuilder: (context, i) {
-                                        final isAct = i == activeLyricIndex;
-                                        return Container(
-                                          alignment: Alignment.centerLeft,
-                                          child: Text(
-                                            song.lyrics[i],
-                                            style: TextStyle(
-                                              color: isAct ? Colors.white : Colors.white24,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
+                      const SizedBox(height: 24),
                     ],
                   ),
                 ),

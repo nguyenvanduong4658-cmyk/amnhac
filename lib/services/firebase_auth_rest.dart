@@ -72,6 +72,91 @@ class FirebaseAuthRest {
     return body;
   }
 
+  /// Send a password reset email.
+  /// Throws [FirebaseAuthRestException] on failure.
+  static Future<void> sendPasswordResetEmail({
+    required String email,
+  }) async {
+    final url = Uri.parse(
+      'https://identitytoolkit.googleapis.com/v1/accounts:sendOobCode?key=$_apiKey',
+    );
+
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'requestType': 'PASSWORD_RESET',
+        'email': email,
+      }),
+    );
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode != 200) {
+      final error = body['error'] as Map<String, dynamic>?;
+      final code = error?['message'] ?? 'UNKNOWN';
+      throw FirebaseAuthRestException(_friendlyMessage(code.toString()), code.toString());
+    }
+  }
+
+  /// Update user password using ID token.
+  /// Throws [FirebaseAuthRestException] on failure.
+  static Future<Map<String, dynamic>> updatePassword({
+    required String idToken,
+    required String newPassword,
+  }) async {
+    final url = Uri.parse(
+      'https://identitytoolkit.googleapis.com/v1/accounts:update?key=$_apiKey',
+    );
+
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'idToken': idToken,
+        'password': newPassword,
+        'returnSecureToken': true,
+      }),
+    );
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode != 200) {
+      final error = body['error'] as Map<String, dynamic>?;
+      final code = error?['message'] ?? 'UNKNOWN';
+      throw FirebaseAuthRestException(_friendlyMessage(code.toString()), code.toString());
+    }
+
+    return body;
+  }
+
+  /// Delete user account using ID token.
+  /// Throws [FirebaseAuthRestException] on failure.
+  static Future<void> deleteAccount({
+    required String idToken,
+  }) async {
+    final url = Uri.parse(
+      'https://identitytoolkit.googleapis.com/v1/accounts:delete?key=$_apiKey',
+    );
+
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'idToken': idToken,
+      }),
+    );
+
+    final body = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode != 200) {
+      final error = body['error'] as Map<String, dynamic>?;
+      final code = error?['message'] ?? 'UNKNOWN';
+      throw FirebaseAuthRestException(_friendlyMessage(code.toString()), code.toString());
+    }
+  }
+
+
   /// Translate Firebase REST error codes to friendly Vietnamese messages.
   static String _friendlyMessage(String code) {
     switch (code) {

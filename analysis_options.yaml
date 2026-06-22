@@ -1,0 +1,23 @@
+include: package:flutter_lints/flutter.yaml
+
+analyzer:
+  errors:
+    deprecated_member_use: ignore
+    use_build_context_synchronously: ignore
+    prefer_final_fields: ignore
+    avoid_print: ignore
+    prefer_interpolation_to_compose_strings: ignore
+    unnecessary_underscores: ignore
+    prefer_const_constructors: ignore
+    prefer_const_literals_to_create_immutables: ignore
+    prefer_const_constructors_in_immutables: ignore
+    unused_element: ignore
+    unused_field: ignore
+    unused_local_variable: ignore
+    dead_code: ignore
+    avoid_unnecessary_containers: ignore
+    prefer_const_declarations: ignore
+    sized_box_for_whitespace: ignore
+    constant_identifier_names: ignore
+    unused_import: ignore
+    library_private_types_in_public_api: ignore
